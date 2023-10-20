@@ -21,6 +21,14 @@ interface Ipost {
     isedited: boolean,
 }
 
+interface Ireplies {
+    id: number,
+    post_id: number,
+    username: string,
+    text: string,
+    date: string,
+}
+
 const connection = mysql.createConnection({
     host: 'localhost',
     user: 'root',
@@ -97,38 +105,52 @@ app.get(`/server/posts/:user`, (req: Request, res:Response) => {
 
     if(currentUser == "all") {
         const getPostsQuery: string = `SELECT p.*, logimage FROM posts p INNER JOIN loginfo ON logname = post_author;`;
-        connection.query(getPostsQuery, (error: Error, result: any, fields:any) => {
+        connection.query(getPostsQuery, (error: Error, result: any) => {
             if(error) {
                 console.log("Error", error);
                 res.status(500).send("Error here")
             } else {
-                console.log("Posts rtreived successfully")
+                console.log("Posts rtrieved successfully")
                 res.status(200).json(result);
             }
         });
         
     } else {
         const getPostsQuery: string = `SELECT * FROM posts WHERE post_author="${currentUser}";`;
-        connection.query(getPostsQuery, (error: Error, result: any, fields:any) => {
+        connection.query(getPostsQuery, (error: Error, result: any) => {
             if(error) {
                 console.log("Error", error);
                 res.status(500).send("Error here")
             } else {
-                console.log("Posts rtreived successfully")
+                console.log("Posts retrieved successfully")
                 res.status(200).json(result);
             }
         });
     };
 });
 
-//Create a new post in the db
-app.post(`/server/posts/:postInfo`, (req: Request, res: Response) => {
+//Display the replies
+app.post('/server/replies', (req: Request, res:Response) => {
+    const getRepliesQuery: string = 'SELECT * FROM replies;';
+    connection.query(getRepliesQuery, (error: Error, result: any) => {
+        if(error) {
+            console.log("Error", error);
+            res.status(500).send("Error here")
+        } else {
+            console.log("Replies retrieved successfully")
+            res.status(200).json(result);
+        }
+    })
+});
 
-    const postInfo: Ipost = JSON.parse(req.params.postInfo);
-    const myQuery: string = `INSERT INTO posts (post_author, post_text, post_date) VALUES ( ?, ?, ? )`;
-    console.log(postInfo.post_author, postInfo.post_text, postInfo.post_date, "<- this is sent by the front end for the post info");
+//Create a reply
+app.post(`/server/replies/:replyInfo`, (req: Request, res: Response) => {
 
-    connection.query(myQuery, [postInfo.post_author, postInfo.post_text, postInfo.post_date ], (error: Error, result: any, fields:any) => {
+    const replyInfo: Ireplies = JSON.parse(req.params.replyInfo);
+    const myQuery: string = `INSERT INTO replies (post_id, username, text, date) VALUES ( ?, ?, ?, ?)`;
+    console.log(replyInfo.post_id, replyInfo.username, replyInfo.text, replyInfo.date, "<- this is sent by the front end for the post info");
+
+    connection.query(myQuery, [replyInfo.post_id, replyInfo.username, replyInfo.text, replyInfo.date], (error: Error, result: any) => {
         if(error) {
             console.log("Error", error);
             res.status(500).send("Error here")
@@ -140,16 +162,43 @@ app.post(`/server/posts/:postInfo`, (req: Request, res: Response) => {
 
 });
 
-//Delete a post in the db
+
+
+//Create a new post in the db
+app.post(`/server/posts/:postInfo`, (req: Request, res: Response) => {
+
+    const postInfo: Ipost = JSON.parse(req.params.postInfo);
+    const myQuery: string = `INSERT INTO posts (post_author, post_text, post_date) VALUES ( ?, ?, ? )`;
+    console.log(postInfo.post_author, postInfo.post_text, postInfo.post_date, "<- this is sent by the front end for the post info");
+
+    connection.query(myQuery, [postInfo.post_author, postInfo.post_text, postInfo.post_date ], (error: Error, result: any) => {
+        if(error) {
+            console.log("Error", error);
+            res.status(500).send("Error here")
+        } else {
+            console.log("Post created successfully")
+            res.status(200).json(result);
+        }
+    })
+
+});
+
+//Delete a post in the db with its comments!
 app.delete('/server/delete/:postid', (req: Request, res: Response) => {
     const postid = req.params.postid;
-    const myQuery: string = `DELETE FROM posts WHERE postid = ${postid}`;
+    const myQuery: string = `DELETE FROM posts WHERE postid = ${postid};`;
     console.log(`post with number ${postid} was deleted!`);
-    connection.query(myQuery, (error: Error, result: any, fields: any) => {
+    connection.query(myQuery, (error: Error, result: any) => {
+        if(error) throw error;
+        console.log("The number of rows deleted: " + result.affectedRows);
+        return;
+    })
+    //delete comments for the post that was deleted
+    connection.query(`DELETE FROM replies WHERE post_id = ${postid};`, (error:Error, result: any) => {
         if(error) throw error;
         console.log("The number of rows deleted: " + result.affectedRows);
         res.status(200).json(result);
-    })
+    }) 
 });
 
 //Edit a post
@@ -159,7 +208,7 @@ app.post('/server/edit/:postid/:text',(req: Request, res: Response) => {
     const text = req.params.text;
     console.log(postid, text);
     const myQuery: string = `UPDATE posts SET post_text = ? WHERE postid = ?`;
-    connection.query(myQuery, [text, postid], (error: Error, result: any, fields: any) => {
+    connection.query(myQuery, [text, postid], (error: Error, result: any) => {
         if(error) throw error;
         console.log(`the post with id ${postid} edited successfully!`);
         res.status(200).json(result);
@@ -175,14 +224,14 @@ app.post('/server/like/:postid/:userid',(req: Request, res: Response) => {
     // get the existing likes
     if( post_id == "0" && user_id == "0" ){
         const getLikes: string = 'SELECT user_id, post_id FROM likes';
-        connection.query(getLikes, (error: Error, result: any, fields: any) => {
+        connection.query(getLikes, (error: Error, result: any) => {
             if(error) throw error;
             res.status(200).json(result);
         })
     // add a like
     } else {
         const myQuery: string = `INSERT INTO likes ( post_id, user_id ) VALUES ( ?, ? )`;
-        connection.query(myQuery, [post_id, user_id], (error: Error, result: any, fields: any) => {
+        connection.query(myQuery, [post_id, user_id], (error: Error, result: any) => {
             if(error) throw error;
             console.log(`the post's likes with id ${post_id} are updated successfully!`);
             res.status(200).json(result);
@@ -196,7 +245,7 @@ app.delete('/server/dislike/:postid/:userid',(req: Request, res: Response) => {
     const post_id = req.params.postid;
     const user_id = req.params.userid;
     const delQuery = `DELETE FROM likes WHERE post_id = ${post_id} AND user_id = ${user_id}`;
-    connection.query(delQuery, (error: Error, result: any, fields: any) => {
+    connection.query(delQuery, (error: Error, result: any) => {
         if(error) throw error;
         console.log("the like object with post_id: ",post_id,"and user_id", user_id, "was deleted successfully!");
         res.status(200).json(result);

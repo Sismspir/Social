@@ -209,11 +209,11 @@ function Home(props: { updateUser: (user:string) => void}) {
                     <div className='flex items-center'>
                         {currentPageData.logimage && <img className="w-8 h-8 rounded-full" src={currentPageData.logimage.toString()} alt="Selected" />}
                         <span className='font-semibold m-2'>{currentPageData.post_author}</span> 
-                        <span>{currentPageData.post_date && currentPageData.post_date.split('T')[0].split('-').join(", ")}</span>
+                        <span>{currentPageData.post_date && currentPageData.post_date.split('T')[0].split('-').join("-")}</span>
                     </div>
                 </div>
 
-                <div className='text-[16px] mt-2'>
+                <div className='font-sans md:font-serif text-[16px] mt-2'>
                     <div>{currentPageData.post_text}</div>
                     {/*Add dislike icon if a user likes already the post.*/}
                     <div className='flex items-center font-14px mt-2'>           
