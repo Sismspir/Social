@@ -5,10 +5,12 @@ import { RiReplyAllLine as Reply } from 'react-icons/Ri';
 import { AiFillLike as Like} from 'react-icons/Ai'
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import {Buffer} from 'buffer';
 import ReactPaginate from 'react-paginate';
-import { FormEvent } from 'react';
+import { FormEvent, ChangeEvent } from 'react';
 import Navbar from './Navbar';
 import axios from 'axios';
+import { Ireplies, Ilikes, Iresult } from './MyInterfaces.js'
 
 interface Iposts {
     postid: number,
@@ -21,23 +23,6 @@ interface Iposts {
     reply_shown: boolean,
 }
 
-interface Ireplies {
-    id: number,
-    post_id: number,
-    username: string,
-    text: string,
-    date: string,
-}
-
-interface Ilikes {
-    user_id: number,
-    post_id: number,
-}
-
-interface Iresult {
-    [postId: string]: number;
-}
-
 function Myprofile(props: { updateUser: (user:string) => void}) {
 
     const [userImage, setUserImage] = useState<Blob>();
@@ -45,8 +30,9 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
     const [replies, setReplies] = useState<Ireplies[]>([]);
     const [postLikes, setPostLikes] = useState<Ilikes[]>([]);
     const [finalLikes, setFinalLikes] = useState<Iresult>({});
+    const [changeImage, setChangeImage] = useState<boolean>(false);
 
-    // pagination
+    // pagination start
     const [currentPage, setCurrentPage] = useState(0);
     const itemsPerPage = 4; // Number of items per page
     const pageCount = Math.ceil(postInfo.length / itemsPerPage);
@@ -55,7 +41,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
     };
     const offset = currentPage * itemsPerPage;
     const currentPageData = postInfo.slice(offset, offset + itemsPerPage);
-    // pagination
+    // pagination end
 
     const localVariable = localStorage.getItem("currentUser"); 
     const currentUser =  localVariable != null ? JSON.parse(localVariable).logUser : "";
@@ -130,7 +116,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
             text: reply,
             date: formattedDate
         };
-        console.log("stelnw afto se string ", replyInfo);
+
         try {
             const response = await axios.post(`http://localhost:3000/server/replies/${JSON.stringify(replyInfo)}`);
             console.log(replyInfo," was submited successfully!", response);
@@ -147,7 +133,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
         const text = myform.edited.value;
         console.log("this is edited", text);
         try {
-            const response = await axios.post(`http://localhost:3000/server/edit/${id}/${text}`);
+            const response = await axios.post(`http://localhost:3000/server/edit/${id}`, { text });
             console.log(id," was edited successfully!", response);
             refreshPage();
         } catch (error) {
@@ -160,7 +146,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
         // send the query to the db
         try {
             const response = await axios.post(`http://localhost:3000/server/like/${postid}/${userid}`);
-            console.log("post with id:", postid," was deleted successfully!", response);
+            console.log("post with id:", postid," was liked successfully!", response);
             refreshPage()
         } catch (error) {
             console.log(error);
@@ -196,6 +182,34 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
         }}
         return false;
     }
+
+    // set image
+    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+        // change the new image
+        const inputImg = e.target !== null ? e.target : { files: []};  
+        setUserImage((inputImg.files !== null ? inputImg.files[0] : userImage));
+        console.log("image changed", userImage);
+        // save the new image in the db
+        if( userImage !== undefined) {
+            userImage.arrayBuffer().then((arrayBuffer) => {
+                const byteArrImg = new Uint8Array(arrayBuffer);
+                const base64Image = Buffer.from(byteArrImg).toString('base64');
+           
+
+            const changeImage = async(base64Image: string) => {
+                try {
+                    console.log("this is the byte array in the request: ", base64Image);            
+                    const response = await axios.post(`http://localhost:3000/server/setImage/${userid}`, { image: base64Image });
+                    console.log(response)
+                } catch(er) {
+                    console.log(er);
+                }
+            };
+
+            changeImage(base64Image);
+            });  
+        };
+    }
     
     //get the posts and the user's image from the server
     useEffect(() => {
@@ -218,6 +232,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
             try {
               const response = await axios.get(`http://localhost:3000/server/posts/${currentUser}`);
               queryResult = response.data;
+              // let finalresult = queryResult.map( (item:Iposts) => item = {...item, isshown:false})
               setPostInfo(queryResult);
             } catch(err) {
                 console.log(err);
@@ -255,14 +270,20 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
     }, []);
 
     console.log(postInfo, postLikes, "replies here",  replies);
-
     return(
         <div>
             <Navbar/>
+            <div className='flex flex-row relative'>
+                <div className='flex flex-col max-w-[14vw] max-h-[10vh] m-4'>
+                    {userImage && <img onClick = {() => {setChangeImage(!changeImage)}} className="w-24 h-24 rounded-full" src={URL.createObjectURL(userImage)} alt="Selected" />}
+                    {changeImage && <div className='mt-1'> <input type="file" onChange={(e) => {handleChange(e)}} /></div>}
+                </div>
+                <p className='self-center mx-auto text-3xl italic text-center font-extrabold text-[#b264c5] shadow-lg absolute top-[30%] left-[65%]'>Welcome {currentUser}</p>
+            </div>
             <div className=''> 
                 <div className='text-2xl text-center font-extrabold text-orange-500 shadow-lg'>My Posts</div>
                 { currentPageData.map( (currentPageData, index) => 
-                (<div key={currentPageData.postid} className='text-[#363a42] rounded-md border-slate-400 m-2 p-2 bg-[#f5f6f8]'> 
+                (<div key={index} className='text-[#363a42] rounded-md border-slate-400 m-2 p-2 bg-[#f5f6f8]'> 
 
                 <div className='flex justify-between'>
                     <div className='flex items-center'>
@@ -296,7 +317,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
                     {/* Leave a comment */}
                     <div className="text-[13px] border-b border-[#a5cbd4] ml-3 flex flex-row space-x-2 "><div  onClick={() => handleReply(currentPageData.postid)} className='hover:text-[#51abc2]'><Reply/></div><p className=''>reply</p></div>
                     {/*Show the replies when the user clicks */}
-                    <span className="flex flex-row ml-3"><div onClick={() => handleComments(currentPageData.postid)} className='hover:text-[#fda1a1]'><Comment/></div><p className='ml-2 text-[13px] border-b border-[#f0bfbf]'>
+                    <span className="flex flex-row ml-3 border-b border-[#f0bfbf]"><div onClick={() => handleComments(currentPageData.postid)} className='hover:text-[#fda1a1]'><Comment/></div><p className='ml-2 text-[13px]'>
                         {replies.filter(reply => reply.post_id === currentPageData.postid).length} comment(s)</p>
                     </span>
                     </div>
@@ -326,7 +347,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
                                     </div> 
                                 </form>
                             : <div></div>
-                        } {}
+                        } 
                     </div>
                 </div>
             </div>)

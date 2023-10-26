@@ -1,4 +1,6 @@
 import { Request, Response, request } from 'express';
+import { Iuser, Ireplies, Ipost} from '../src/components/MyInterfaces.js';
+const bodyParser = require('body-parser');
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
@@ -6,28 +8,6 @@ const cors = require('cors');
 const app = express();
 
 const port = 3000;
-
-interface Iuser {
-    username: string,
-    password: string,
-}
-
-interface Ipost {
-    postid: number | null,
-    post_author: string | null,
-    post_text: string,
-    post_date: string,
-    isshown: boolean,
-    isedited: boolean,
-}
-
-interface Ireplies {
-    id: number,
-    post_id: number,
-    username: string,
-    text: string,
-    date: string,
-}
 
 const connection = mysql.createConnection({
     host: 'localhost',
@@ -46,6 +26,10 @@ connection.connect((error: Error | null) => {
 
 app.use(cors());
 
+app.use(bodyParser.json({limit: "50mb"}));
+
+app.use(bodyParser.urlencoded({limit: "50mb", extended: true, parameterLimit:50000}));
+
 //Log the user In
 app.post('/server/login/:logname', (req: Request, res:Response) => {
 
@@ -59,19 +43,19 @@ app.post('/server/login/:logname', (req: Request, res:Response) => {
                 res.status(500);
                 return;
             } else {
-                console.log('The query run successfully we got all the usernames!', result);
+                console.log('The query run successfully we got all the usernames!', result, "these are the fields: ", fields);
                 res.status(200).json(result);
                 return;
             }
         });
     } else {
      // get the username and the password for the user given in params
-        connection.query(`SELECT * FROM loginfo WHERE logname="${loggedUser}";`, (error: Error, result: any, fields:any) => {
+        connection.query(`SELECT * FROM loginfo WHERE logname="${loggedUser}";`, (error: Error, result: any, fields:string) => {
             if(error) {
                 console.log("Name does not exist");
                 res.status(500).send("Not valid username")
             } else {
-                console.log('The query run successfully!')
+                console.log('The query run successfully!' , "these are the fields: ", fields)
                 res.status(200).json(result);
             }
         });
@@ -98,6 +82,43 @@ app.post('/server/register/:user', (req: Request, res:Response) => {
     });
 });
 
+//Get the user image 
+app.get('/server/getImage/:user', (req:Request, res:Response) => {
+    const userImg: string = req.params.user;
+    const getphoto: string = `SELECT logimage FROM loginfo WHERE logname = '${userImg}'`;
+    connection.query(getphoto, (err: Error, result: any) => {
+        if(err) {
+            console.log("Error", err);
+            res.status(500).send("Error here")
+        } else {
+            console.log("Image retrieved successfully!");
+            console.log("this is the image before json: ", result);
+            res.status(200).json(result);
+        }
+    })
+})
+
+
+//Set the user image 
+app.post('/server/setImage/:id', (req:Request, res:Response) => {
+    const id: string = req.params.id;
+    const base64userImg: string = req.body.image;
+    const userImage = Buffer.from(base64userImg, 'base64');
+
+
+    const setphoto: string = `UPDATE loginfo SET logimage = '${userImage}' WHERE logid = '${id}';`;
+    console.log("this is the image: ", userImage);
+    connection.query(setphoto, (err: Error, result: any) => {
+        if(err) {
+            console.log("Error", err);
+            res.status(500).send("Error here")
+        } else {
+            console.log("Image retrieved successfully!");
+            res.status(200).json(result);
+        }
+    })
+})
+
 //Display the posts
 app.get(`/server/posts/:user`, (req: Request, res:Response) => {
 
@@ -110,7 +131,7 @@ app.get(`/server/posts/:user`, (req: Request, res:Response) => {
                 console.log("Error", error);
                 res.status(500).send("Error here")
             } else {
-                console.log("Posts rtrieved successfully")
+                console.log("Posts retrieved successfully but we have an error with time");
                 res.status(200).json(result);
             }
         });
@@ -202,10 +223,10 @@ app.delete('/server/delete/:postid', (req: Request, res: Response) => {
 });
 
 //Edit a post
-app.post('/server/edit/:postid/:text',(req: Request, res: Response) => {
-
+app.post('/server/edit/:postid',(req: Request, res: Response) => {
+    console.log(req);
     const postid = req.params.postid;
-    const text = req.params.text;
+    const text = req.body.text;
     console.log(postid, text);
     const myQuery: string = `UPDATE posts SET post_text = ? WHERE postid = ?`;
     connection.query(myQuery, [text, postid], (error: Error, result: any) => {

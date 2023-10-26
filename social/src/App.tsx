@@ -13,7 +13,7 @@ function App() {
   console.log("the current user is:", currentUser);
   return (
     <>
-      <div className='h-screen bg-[#d4bfee]'>
+      <div className='min-h-screen bg-[#d4bfee]'>
         <AlertContainer>
         <Router>
           <Routes>
