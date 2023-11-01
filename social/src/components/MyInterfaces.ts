@@ -31,6 +31,7 @@ interface Ireplies {
     username: string,
     text: string,
     date: string,
+    pdate: string,
 }
 
 interface Ilikes {

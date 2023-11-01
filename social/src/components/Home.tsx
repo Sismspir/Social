@@ -8,7 +8,6 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import ReactPaginate from 'react-paginate';
 import { FormEvent } from 'react';
-import handlePost from './HandlePost';
 import Navbar from './Navbar';
 import axios from 'axios';
 
@@ -16,7 +15,7 @@ interface Iposts {
     postid: number,
     post_author: string,
     post_text: string,
-    post_date: string,
+    pdate: string,
     isshown: boolean,
     isedited: boolean,
     comments_shown: boolean,
@@ -110,7 +109,6 @@ function Home(props: { updateUser: (user:string) => void}) {
         }
     };
 
-
     // logs the user out and clears the local storage
     const logout = () => {
         updateUser("");
@@ -164,9 +162,10 @@ function Home(props: { updateUser: (user:string) => void}) {
         post.postid === id ? { ...post, isedited: !post.isedited } : post
         ));
     };
+    
 
-       // show comments
-       const handleComments = (postId: number) =>{
+    // show comments
+    const handleComments = (postId: number) =>{
         setPostInfo((postInfo) => postInfo.map((post) =>
         // close the replies if open
         post.postid === postId ? { ...post, comments_shown: !post.comments_shown, reply_shown: (post.reply_shown === true ? false  : false)   } : post)
@@ -179,6 +178,21 @@ function Home(props: { updateUser: (user:string) => void}) {
         // close the comments if open
         post.postid === postId ? { ...post, reply_shown: !post.reply_shown, comments_shown: (post.comments_shown === true ? false  : false)  } : post)
         ); 
+    };
+
+    // edit the given post
+    const handleEdit = async (e: FormEvent<HTMLFormElement>, id: number) => {
+        e.preventDefault();
+        const myform = e.currentTarget;
+        const text = myform.edited.value;
+        console.log("this is edited", text);
+        try {
+            const response = await axios.post(`http://localhost:3000/server/edit/${id}`, { text });
+            console.log(id," was edited successfully!", response);
+            refreshPage();
+        } catch (error) {
+            console.log(error);
+        }
     };
 
     // delete the given post
@@ -200,8 +214,6 @@ function Home(props: { updateUser: (user:string) => void}) {
         ); 
     };
     
-
-
     useEffect(() => {
  
         const getPosts = async () => {
@@ -218,6 +230,7 @@ function Home(props: { updateUser: (user:string) => void}) {
                     console.log("this is my image from db: ",response.data[0]["logimage"].data )
                     const byteArray = new Uint8Array(response.data[0]["logimage"].data);
                     const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                    const imageUrl = URL.createObjectURL(blob);
                     console.log(blob);
                     return blob;
                   } catch (err) {
@@ -294,23 +307,30 @@ function Home(props: { updateUser: (user:string) => void}) {
 
                 <div className='flex justify-between'>
                     <div className='flex items-center'>
-                        {currentPageData.logimage && <img className="w-8 h-8 rounded-full" src={URL.createObjectURL(currentPageData.logimage)} alt="Selected" />}
+                        {currentPageData.logimage && 
+                        <a href={`http://localhost:5173/user/${currentPageData.post_author}`}><img className="w-8 h-8 rounded-full" src={URL.createObjectURL(currentPageData.logimage)} alt="Selected"/></a>}
                         <span className='font-semibold m-2'>{currentPageData.post_author}</span> 
-                        <span>{currentPageData.post_date && currentPageData.post_date.split('T')[0].split('-').join("-")}</span>
+                        <span>{currentPageData.pdate && currentPageData.pdate.split('T')[0].split('-').join("-")}</span>
                     </div>
                     {currentUser == currentPageData.post_author ?
                     (<div className='relative ml-auto'>
                         <div className='w-[2vw]'><Dots onClick={() => ( showMenu(currentPageData.postid) )}/>
-                        { currentPageData.isshown ? <div className='bg-[#f7ebf1] font-semibold text-gray-600 absolute rounded-md ml-[-7.5vw] h-[8vh] min-h-[4rem] w-[7vw] min-w-[3.5rem] border-2 border-[#f7ebf1]'>
-                            <div onClick={() => handleOpenEdit(currentPageData.postid)} className='m-[0.2vw] hover:text-[#e661a3]'>Edit</div>
-                            <div onClick={() => handleDelete(currentPageData.postid)} className='m-[0.2vw] hover:text-[#ff6a6a]'>Delete</div>
-                        </div> : <p/> }
+                        { currentPageData.isshown ? <div className='border-2 border-purple-400 bg-[#f7ebf1] font-bold text-gray-500 text-center absolute rounded-l-xl ml-[-7.5vw] h-[8vh] min-h-[4rem] min-w-[3.5rem]'>
+                            <div onClick={() => handleOpenEdit(currentPageData.postid)} className='border-b-2 border-orange-400 m-[0.2vw] hover:text-[#e661a3]'>Edit</div>
+                            <div onClick={() => handleDelete(currentPageData.postid)} className='border-b-2 border-orange-400 m-[0.2vw] hover:text-[#ff6a6a]'>Delete</div>
+                        </div> : <p></p> }
                         </div>
                     </div>)  : <p/> }
                 </div>
 
                 <div className='font-sans md:font-serif text-[16px] mt-2'>
-                    <div>{currentPageData.post_text}</div>
+                    { currentPageData.isedited ? 
+                        <form onSubmit={(event) => handleEdit(event, currentPageData.postid)}>
+                            <input key="form" className="rounded-md mx-2 py-4 w-[40%] outline-none" placeholder={" "+currentPageData.post_text} type="text"  name="edited"/>
+                            <input key="btn" className="rounded-md hover:bg-[#cfdbc0] bgrounded-md w-[10%] p-2 border-slate-400 bg-[#b9dd90]" value="Edit" type="submit"></input>
+                        </form>
+                        :
+                    <div>{currentPageData.post_text}</div>} 
                     {/*Add dislike icon if a user likes already the post.*/}
                     <div className='flex flex-row '>
                     <div className='flex items-center font-14px'>           
@@ -329,7 +349,7 @@ function Home(props: { updateUser: (user:string) => void}) {
                         {/* Map the replies if post.commentsShown = true. Show a reply if the post_id == currentpagedata.postid. */}
                         { (currentPageData.comments_shown && replies.filter(reply => reply.post_id === currentPageData.postid).length != 0 ) ? replies.map((comment, index) => 
                             ( currentPageData.postid === comment.post_id && (<div className='font-sans md:font-serif text-[14px] rounded-md border-2 border-slate-300 m-2 p-2 bg-[#f5f6f8]' 
-                            key={comment.id}> <span className='font-bold'>{comment.username}</span> on {comment.date ? comment.date.split('T')[0].split('-').join("-") : ""} <span className='font-semibold'>replied:</span> <br/> {comment.text} </div>) 
+                            key={comment.id}> <span className='font-bold'>{comment.username}</span> on {comment.date ? comment.pdate.split('T')[0].split('-').join("-") : ""} <span className='font-semibold'>replied:</span> <br/> {comment.text} </div>) 
                             ))
                             : (<div></div>) 
                         }

@@ -21,7 +21,8 @@
     "react-dom": "^18.2.0",
     "react-icons": "^4.11.0",
     "react-paginate": "^8.2.0",
-    "react-router-dom": "^6.16.0"
+    "react-router-dom": "^6.16.0",
+    "require": "^2.4.20"
   },
   "devDependencies": {
     "@types/node": "^20.8.9",

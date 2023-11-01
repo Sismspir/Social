@@ -1,5 +1,9 @@
-import { Request, Response, request } from 'express';
 import { Iuser, Ireplies, Ipost} from '../src/components/MyInterfaces.js';
+import { Request, Response, request } from 'express';
+
+process.env.TZ = 'Europe/Athens';
+
+const moment = require('moment-timezone');
 const bodyParser = require('body-parser');
 const express = require('express');
 const mysql = require('mysql2');
@@ -63,6 +67,23 @@ app.post('/server/login/:logname', (req: Request, res:Response) => {
 
 });
 
+// get the id
+app.post('/server/getid/:logname', (req: Request, res:Response) => {
+
+    const loggedUser = req.params.logname;
+    connection.query(`SELECT logid FROM loginfo WHERE logname = '${loggedUser}';`, (error: Error, result: any, fields:any) => {
+        if(error) {
+            console.log("What can be wrong here?", error);
+            res.status(500);
+            return;
+        } else {
+            console.log('The query run successfully we got all the usernames!', result, "these are the fields: ", fields);
+            res.status(200).json(result);
+            return;
+        }
+    });
+});
+
 //Register the user
 app.post('/server/register/:user', (req: Request, res:Response) => {
 
@@ -91,29 +112,26 @@ app.get('/server/getImage/:user', (req:Request, res:Response) => {
             console.log("Error", err);
             res.status(500).send("Error here")
         } else {
-            console.log("Image retrieved successfully!");
-            console.log("this is the image before json: ", result);
+            console.log("getImage retrieved successfully!");
+            // console.log("this is the image before json: ", result);
             res.status(200).json(result);
         }
     })
 })
 
-
 //Set the user image 
 app.post('/server/setImage/:id', (req:Request, res:Response) => {
     const id: string = req.params.id;
-    const base64userImg: string = req.body.image;
-    const userImage = Buffer.from(base64userImg, 'base64');
-
-
-    const setphoto: string = `UPDATE loginfo SET logimage = '${userImage}' WHERE logid = '${id}';`;
-    console.log("this is the image: ", userImage);
+    const userImage: Buffer = req.body.image;
+  
+    const setphoto: string = `UPDATE loginfo SET logimage = '${userImage}' WHERE logid = '${id}'`;
+    console.log("this is the image that goes in: ", userImage , "<---");
     connection.query(setphoto, (err: Error, result: any) => {
         if(err) {
             console.log("Error", err);
             res.status(500).send("Error here")
         } else {
-            console.log("Image retrieved successfully!");
+            console.log("setImage retrieved successfully!");
             res.status(200).json(result);
         }
     })
@@ -125,19 +143,22 @@ app.get(`/server/posts/:user`, (req: Request, res:Response) => {
     const currentUser = req.params.user;
 
     if(currentUser == "all") {
-        const getPostsQuery: string = `SELECT p.*, logimage FROM posts p INNER JOIN loginfo ON logname = post_author;`;
+        const getPostsQuery: string = `SELECT p.*, DATE_FORMAT(post_date, "%Y-%m-%d") AS pdate, logimage FROM posts p INNER JOIN loginfo ON logname = post_author;`;
+        
         connection.query(getPostsQuery, (error: Error, result: any) => {
             if(error) {
                 console.log("Error", error);
                 res.status(500).send("Error here")
             } else {
-                console.log("Posts retrieved successfully but we have an error with time");
+                console.log(`My Time: ${new Date()}`);
+                console.log("Posts retrieved successfully but we have an error with time", result[0].pdate);
+                console.log("gpt solution", moment(result[0].post_date).format('YYYY-MM-DD'));
                 res.status(200).json(result);
             }
         });
         
     } else {
-        const getPostsQuery: string = `SELECT * FROM posts WHERE post_author="${currentUser}";`;
+        const getPostsQuery: string = `SELECT *, DATE_FORMAT(post_date, "%Y-%m-%d") AS pdate FROM posts WHERE post_author="${currentUser}";`;
         connection.query(getPostsQuery, (error: Error, result: any) => {
             if(error) {
                 console.log("Error", error);
@@ -152,7 +173,7 @@ app.get(`/server/posts/:user`, (req: Request, res:Response) => {
 
 //Display the replies
 app.post('/server/replies', (req: Request, res:Response) => {
-    const getRepliesQuery: string = 'SELECT * FROM replies;';
+    const getRepliesQuery: string = 'SELECT *, DATE_FORMAT(date, "%Y-%m-%d") AS pdate FROM replies;';
     connection.query(getRepliesQuery, (error: Error, result: any) => {
         if(error) {
             console.log("Error", error);
@@ -170,7 +191,6 @@ app.post(`/server/replies/:replyInfo`, (req: Request, res: Response) => {
     const replyInfo: Ireplies = JSON.parse(req.params.replyInfo);
     const myQuery: string = `INSERT INTO replies (post_id, username, text, date) VALUES ( ?, ?, ?, ?)`;
     console.log(replyInfo.post_id, replyInfo.username, replyInfo.text, replyInfo.date, "<- this is sent by the front end for the post info");
-
     connection.query(myQuery, [replyInfo.post_id, replyInfo.username, replyInfo.text, replyInfo.date], (error: Error, result: any) => {
         if(error) {
             console.log("Error", error);
@@ -183,15 +203,13 @@ app.post(`/server/replies/:replyInfo`, (req: Request, res: Response) => {
 
 });
 
-
-
 //Create a new post in the db
 app.post(`/server/posts/:postInfo`, (req: Request, res: Response) => {
 
     const postInfo: Ipost = JSON.parse(req.params.postInfo);
     const myQuery: string = `INSERT INTO posts (post_author, post_text, post_date) VALUES ( ?, ?, ? )`;
     console.log(postInfo.post_author, postInfo.post_text, postInfo.post_date, "<- this is sent by the front end for the post info");
-
+    
     connection.query(myQuery, [postInfo.post_author, postInfo.post_text, postInfo.post_date ], (error: Error, result: any) => {
         if(error) {
             console.log("Error", error);
@@ -272,6 +290,40 @@ app.delete('/server/dislike/:postid/:userid',(req: Request, res: Response) => {
         res.status(200).json(result);
     })
 
+});
+
+//Follow
+app.post('server/follow/:followerId/:followingId', (req:Request, res:Response) => {
+    const followerId = req.params.followerId;
+    const followeingId = req.params.followeingId;
+    const followQuery = 'INSERT INTO follows ( followerId, followingId ) VALUES (?, ?)';
+    connection.query(followQuery, [followerId, followeingId], (error: Error, result: any) => {
+        if(error) throw error;
+        console.log(`The user with id ${followerId} follows user with id ${followeingId} successfully!`);
+        res.status(200).json(result);
+    })
+});
+
+//Unfollow
+app.post('server/unfollow/:followerId/:followingId', (req:Request, res:Response) => {
+    const followerId = req.params.followerId;
+    const followingId = req.params.followeingId;
+    const followQuery = `DELETE FROM follows WHERE followerId = ${followerId} AND followingId = ${followingId}`;
+    connection.query(followQuery, [followerId, followingId], (error: Error, result: any) => {
+        if(error) throw error;
+        console.log(`The user with id ${followerId} unfollows now user with id ${followingId}`);
+        res.status(200).json(result);
+    })
+});
+
+//get Follows
+app.post('/server/getfollows', (req:Request, res:Response) => {
+    const getFollowsQuery = 'SELECT * FROM follows';
+    connection.query(getFollowsQuery, (error: Error, result: any) => {
+        if(error) throw error;
+        console.log('Follows taken successfully!');
+        res.status(200).json(result);
+    })
 });
 
 app.listen(port, () => {

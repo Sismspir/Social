@@ -5,9 +5,9 @@ import loginImage from '/loginImage.jpg'
 import axios from 'axios';
 
 function Login(props: { updateUser: (user:string) => void}) {
+    const navigate = useNavigate(); 
     const { updateUser } = props;
     const { alert } = useAlert();
-    const navigate = useNavigate(); 
     const goRegister = () => {
         navigate("/register");
     };
@@ -23,7 +23,7 @@ function Login(props: { updateUser: (user:string) => void}) {
     
         const fetchData = async () => {
             try {
-                const response = await axios.post(`http://localhost:3000/server/login/${logUser}`)
+                const response = await axios.post(`http://localhost:3000/server/login/${logUser}`);
                 console.log("sending request to the database");
                 let requestResult = response.data;
                 // get info from the resonse

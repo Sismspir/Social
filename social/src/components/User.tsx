@@ -1,5 +1,7 @@
+import { useParams } from "react-router-dom";
+import { SlUserFollow as Follow } from 'react-icons/Sl';
+import { SlUserFollowing as Unfollow } from 'react-icons/Sl';
 import { LiaCommentsSolid as Comment } from 'react-icons/Lia';
-import { BsThreeDotsVertical as Dots } from 'react-icons/Bs';
 import { AiFillDislike as Dislike} from 'react-icons/Ai';
 import { RiReplyAllLine as Reply } from 'react-icons/Ri';
 import { AiFillLike as Like} from 'react-icons/Ai'
@@ -16,21 +18,30 @@ interface Iposts {
     postid: number,
     post_author: string,
     post_text: string,
-    pdate: string,
+    post_date: string,
     isshown: boolean,
     isedited: boolean,
     comments_shown: boolean,
     reply_shown: boolean,
-}
+};
 
-function Myprofile(props: { updateUser: (user:string) => void}) {
+interface Ifollow {
+    followId: number,
+    followerId: number,
+    followingId: number,
+};
 
+function User() {
+
+    const { givenUser } = useParams<{ givenUser: string}>(); 
+    const [givenUserId, setGivenUserId] = useState<number>(0);
     const [userImage, setUserImage] = useState<Blob>();
     const [postInfo, setPostInfo] = useState<Iposts[]>([]);
     const [replies, setReplies] = useState<Ireplies[]>([]);
     const [postLikes, setPostLikes] = useState<Ilikes[]>([]);
     const [finalLikes, setFinalLikes] = useState<Iresult>({});
-    const [changeImage, setChangeImage] = useState<boolean>(false);
+    const [follows, setFollows] = useState<Ifollow[]>([{ followId: 0, followerId: 0 , followingId: 0 }]);
+    const [isFollowed, setIsFollowed] = useState<boolean>(false);
 
     // pagination start
     const [currentPage, setCurrentPage] = useState(0);
@@ -51,44 +62,48 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
     const navigate = useNavigate();
 
     const refreshPage = () => {
-        navigate(0);
-    }
-    const { updateUser } = props;
+    navigate(0);
+}
 
-    // logout button
-    const logout = () => {
-        updateUser("");
-        localStorage.setItem("currentUser", JSON.stringify({}));
-        navigate("/");
-    }
-
-    // show/hide the dropdown menu of its item
-    const showMenu = (id: number) => {
-        setPostInfo((postInfo) => postInfo.map((post) =>
-            post.postid === id ? { ...post, isshown: !post.isshown } : post
-        )
-      ); 
-    };
-
-    // delete the given post
-    const handleDelete = async (id: number) => {
-        try {
-            const response = await axios.delete(`http://localhost:3000/server/delete/${id}`);
-            console.log(id," was deleted successfully!", response);
-            refreshPage();
-        } catch (error) {
-            console.log(error);
-        }
-    };
-
-    // open edit
-    const handleOpenEdit = (id: number) => {
-        setPostInfo((postInfo) => postInfo.map((post) =>
-        post.postid === id ? { ...post, isedited: !post.isedited } : post
-        ));
-    };
-
+    useEffect((()=> {
+        const getNames = async () =>{
+            try {
+                // already existed endpoint used in another Component.
+                const response = await axios.post(`http://localhost:3000/server/login/${givenUser}`);
     
+                console.log("this is the query result: ", response.data[0].logname === givenUser);
+    
+                if (givenUser !== undefined && response.data[0].logname === givenUser) {
+                    console.log("user is included");
+                    console.log("that is taken from the response ",response.data);
+                    const byteArray = new Uint8Array(response.data[0]["logimage"].data);
+                    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+                    setUserImage(blob);
+                } else {
+                    console.log(givenUser);
+                };
+            
+                console.log("this is the user: ", givenUser);
+            } catch(e) {
+                console.log(e);
+                navigate('/');
+            }
+        };
+    
+        getNames();
+
+    }), []);
+
+    //follow user
+    const followUser = (userName: string) => {
+        console.log("You are following: ", userName);
+    }
+
+    //unfollow user
+    const unfollowUser = (userName: string) => {
+        console.log("You are unfollowing: ", userName);
+    }
+ 
     // show comments
     const handleComments = (postId: number) =>{
         setPostInfo((postInfo) => postInfo.map((post) =>
@@ -104,6 +119,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
         post.postid === postId ? { ...post, reply_shown: !post.reply_shown, comments_shown: (post.comments_shown === true ? false  : false)  } : post)
         ); 
     };
+    
 
     // submit the comment object to the proxy server
     const handleSubmit = async (e: FormEvent<HTMLFormElement>, postId: number) =>{
@@ -182,46 +198,13 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
         }}
         return false;
     }
-
-    // set image
-    const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-        const inputImg = e.target?.files?.[0];
-        if (inputImg) {
-          setUserImage(inputImg);
-      
-          const reader = new FileReader();
-          reader.onload = async () => {
-            if (reader.result instanceof ArrayBuffer) {
-              const arrayBuffer = new Uint8Array(reader.result);
-              const userImageBase64 = Buffer.from(arrayBuffer).toString('base64');
-                    // set image
-                const changeImage = async (base64Image: string) => {
-                try {
-                console.log("this is the base64 image in the request: ", base64Image);
-                const response = await axios.post(`http://localhost:3000/server/setImage/${userid}`, { image: Buffer.from(base64Image, 'base64') });
-                console.log(response);
-                } catch (error) {
-                console.log(error);
-                }
-            };
-    
-              try {
-                await changeImage(userImageBase64);
-              } catch (error) {
-                console.log(error);
-              }
-            }
-          };
-          reader.readAsArrayBuffer(inputImg);
-        }
-      };
       
     //get the posts and the user's image from the server
     useEffect(() => {
 
         const getImage = async () => {
             try {
-                const response = await axios.post(`http://localhost:3000/server/login/${currentUser}`);
+                const response = await axios.post(`http://localhost:3000/server/login/${givenUser}`);
                 // convert data array to blob in order to display it
                 const byteArray = new Uint8Array(response.data[0]["logimage"].data);
                 const blob = new Blob([byteArray], { type: 'image/jpeg' });
@@ -235,7 +218,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
         const getPosts = async() => {
             let queryResult = [];
             try {
-              const response = await axios.get(`http://localhost:3000/server/posts/${currentUser}`);
+              const response = await axios.get(`http://localhost:3000/server/posts/${givenUser}`);
               queryResult = response.data;
               // second way to change the isShown property 
               // let finalresult = queryResult.map( (item:Iposts) => item = {...item, isshown:false})
@@ -268,23 +251,61 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
             }
         };
 
+        const getFollows = async() => {
+            try {
+            const response = await axios.post(`http://localhost:3000/server/getfollows`);
+            const followsResponse = response.data;
+            setFollows(followsResponse);
+            console.log("follows:", follows);
+            } catch(err) {
+            console.log("Error: ", err);
+            }
+    };
+
+        const getId = async() => {
+            try {
+            const response = await axios.post(`http://localhost:3000/server/getid/${givenUser}`);
+            const usrid = response.data;
+            setGivenUserId(usrid[0].logid);
+            console.log("follows:", follows);
+            } catch(err) {
+            console.log("Error: ", err);
+            }
+    };
+
+        const checkIfFollowed = () => {
+            return(follows.map((follow) => {
+                if( follow.followerId === userid && follow.followingId === givenUserId ) {
+                    setIsFollowed(true);
+                }
+            }));
+        }
+
         getPosts();
         getReplies();
         getImage();
         getLikes();
+        getFollows();
+        getId();
+        checkIfFollowed();
 
-    }, []);
-
-    console.log(postInfo, postLikes, "replies here",  replies);
+    }, [givenUserId]);
+    // console.log("here are the follows ", follows);
     return(
         <div>
             <Navbar/>
-            <div className='flex flex-row relative'>
-                <div className='flex flex-col max-w-[14vw] max-h-[10vh] m-4'>
-                    {userImage && <img onClick = {() => {setChangeImage(!changeImage)}} className="w-24 h-24 rounded-full" src={URL.createObjectURL(userImage)} alt="Selected" />}
-                    {changeImage && <div className='mt-1'> <input type="file" onChange={(e) => {handleChange(e)}} /></div>}
+            <div className='text-2xl text-center font-serif font-extrabold text-[#914ebe] shadow-lg'>{givenUser?.replace(/^.{1}/g, givenUser[0].toUpperCase())} Profile</div>
+            <div className="flex my-4">
+                <div className="flex-1 my-auto px-auto  text-white">
+                    {   givenUser == currentUser ? <p></p> : !isFollowed ?
+                        <button onClick={() => {followUser(givenUser ? givenUser : "no-user")}} className="bg-[#8584e0] h-[50%] w-[40%]  max-w-[12rem] min-w-[8rem] mx-auto rounded-xl p-2 flex items-center border border-[#233549] opacity-90 hover:bg-[#6f97c2] shadow-btnShadow"><div className="ml-4"><Follow/></div><p className="ml-4 font-bold tracking-wider italic">Follow</p></button> : 
+                        <button onClick={() => {unfollowUser(givenUser ? givenUser : "no-user")}} className="bg-[#8584e0] h-[50%] w-[40%]  max-w-[12rem] min-w-[10rem] mx-auto rounded-xl p-2 flex items-center border border-[#233549] opacity-90 hover:bg-[#6f97c2] shadow-btnShadow"><div className="ml-4"><Unfollow/></div><p className="ml-4 font-bold tracking-wider italic">Unfollow</p></button>
+                    }
+                </div>  
+                <div className='flex-2'>
+                    {userImage ? <img className="w-32 h-32 rounded-full shadow-picShadow" src={URL.createObjectURL(userImage)} alt="Selected" /> : <div>No image</div>}
                 </div>
-                <p className='self-center mx-auto text-3xl italic text-center font-extrabold text-[#b264c5] shadow-lg absolute top-[30%] left-[65%]'>Welcome {currentUser}</p>
+                <div className="flex-1"></div>
             </div>
             <div className=''> 
                 <div className='text-2xl text-center font-extrabold text-orange-500 shadow-lg'>My Posts</div>
@@ -296,15 +317,7 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
                     <div className='flex items-center'>
                         {userImage && <img className="w-8 h-8 rounded-full" src={URL.createObjectURL(userImage)} alt="Selected" />}
                         <span className='font-semibold m-2'>{currentPageData.post_author}</span> 
-                        <span>{currentPageData.pdate && currentPageData.pdate.split('T')[0].split('-').join("-")}</span>
-                    </div>
-                    <div className='relative ml-auto'>
-                        <div className='w-[2vw]'><Dots onClick={() => ( showMenu(currentPageData.postid) )}/>
-                        { currentPageData.isshown ? <div className='border-2 border-purple-400 bg-[#f7ebf1] font-bold text-gray-500 text-center absolute rounded-l-xl ml-[-7.5vw] h-[8vh] min-h-[4rem] min-w-[3.5rem]'>
-                            <div onClick={() => handleOpenEdit(currentPageData.postid)} className='border-b-2 border-orange-400 m-[0.2vw] hover:text-[#e661a3]'>Edit</div>
-                            <div onClick={() => handleDelete(currentPageData.postid)} className='border-b-2 border-orange-400 m-[0.2vw] hover:text-[#ff6a6a]'>Delete</div>
-                        </div> : <p></p> }
-                        </div>
+                        <span>{currentPageData.post_date && currentPageData.post_date.split('T')[0].split('-').join("-")}</span>
                     </div>
                 </div>
 
@@ -372,8 +385,8 @@ function Myprofile(props: { updateUser: (user:string) => void}) {
                 containerClassName={'border-b-2 p-2 m-2 font-semibold text-center text-gray-600 grid grid-cols-2 w-32 h-16'}
                 activeClassName={'ml-[2vw] w-[60%] rounded-full bg-red-100 opacity-50'}
             />
-            <button className="hover:bg-[#f35353] absolute bottom-4 right-4 bg-[#695681] text-white font-bold m-4 p-4 rounded-md" onClick={logout}>Log out </button>
         </div>
+        
     )
 };
-export default Myprofile;
+export default User;
