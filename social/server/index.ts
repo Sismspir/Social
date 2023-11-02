@@ -293,21 +293,21 @@ app.delete('/server/dislike/:postid/:userid',(req: Request, res: Response) => {
 });
 
 //Follow
-app.post('server/follow/:followerId/:followingId', (req:Request, res:Response) => {
+app.post('/server/follow/:followerId/:followingId', (req:Request, res:Response) => {
     const followerId = req.params.followerId;
-    const followeingId = req.params.followeingId;
+    const followingId = req.params.followingId;
     const followQuery = 'INSERT INTO follows ( followerId, followingId ) VALUES (?, ?)';
-    connection.query(followQuery, [followerId, followeingId], (error: Error, result: any) => {
+    connection.query(followQuery, [followerId, followingId], (error: Error, result: any) => {
         if(error) throw error;
-        console.log(`The user with id ${followerId} follows user with id ${followeingId} successfully!`);
+        console.log(`The user with id ${followerId} follows user with id ${followingId} successfully!`);
         res.status(200).json(result);
     })
 });
 
 //Unfollow
-app.post('server/unfollow/:followerId/:followingId', (req:Request, res:Response) => {
+app.post('/server/unfollow/:followerId/:followingId', (req:Request, res:Response) => {
     const followerId = req.params.followerId;
-    const followingId = req.params.followeingId;
+    const followingId = req.params.followingId;
     const followQuery = `DELETE FROM follows WHERE followerId = ${followerId} AND followingId = ${followingId}`;
     connection.query(followQuery, [followerId, followingId], (error: Error, result: any) => {
         if(error) throw error;

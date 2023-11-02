@@ -41,7 +41,7 @@ function User() {
     const [postLikes, setPostLikes] = useState<Ilikes[]>([]);
     const [finalLikes, setFinalLikes] = useState<Iresult>({});
     const [follows, setFollows] = useState<Ifollow[]>([{ followId: 0, followerId: 0 , followingId: 0 }]);
-    const [isFollowed, setIsFollowed] = useState<boolean>(false);
+    const [isFollowed, setIsFollowed] = useState<boolean>();
 
     // pagination start
     const [currentPage, setCurrentPage] = useState(0);
@@ -95,14 +95,26 @@ function User() {
     }), []);
 
     //follow user
-    const followUser = (userName: string) => {
-        console.log("You are following: ", userName);
-    }
+    const followUser = async () => {
+        try {
+            const response = await axios.post(`http://localhost:3000/server/follow/${userid}/${givenUserId}`);
+            console.log(response, `User with id: ${givenUserId} is followed successfully by user ${userid}!!`);
+            setIsFollowed(true);
+        } catch(err) {
+            console.log(err);
+        }
+    };
 
     //unfollow user
-    const unfollowUser = (userName: string) => {
-        console.log("You are unfollowing: ", userName);
-    }
+    const unfollowUser = async () => {
+        try {
+            const response = await axios.post(`http://localhost:3000/server/unfollow/${userid}/${givenUserId}`);
+            console.log(response, `User with id: ${givenUserId} is now not followed by user ${userid}!!`);
+            setIsFollowed(false);
+        } catch(err) {
+            console.log(err);
+        }
+    };
  
     // show comments
     const handleComments = (postId: number) =>{
@@ -110,7 +122,7 @@ function User() {
         // close the replies if open
         post.postid === postId ? { ...post, comments_shown: !post.comments_shown, reply_shown: (post.reply_shown === true ? false  : false)   } : post)
         ); 
-    }
+    };
 
     // show reply input
     const handleReply = (postId: number) =>{
@@ -273,24 +285,32 @@ function User() {
             }
     };
 
-        const checkIfFollowed = () => {
-            return(follows.map((follow) => {
-                if( follow.followerId === userid && follow.followingId === givenUserId ) {
-                    setIsFollowed(true);
-                }
-            }));
-        }
-
         getPosts();
         getReplies();
         getImage();
         getLikes();
         getFollows();
         getId();
-        checkIfFollowed();
+    
+    }, [givenUserId, isFollowed]);
 
+    // Added a new useEffect only for the checkIfFollowed function.
+    // It updates the isFollowed state variable only when givenUserId changes.
+    useEffect(() => {
+
+        const checkIfFollowed = () => {
+            return(follows.map((follow) => {
+                if( follow.followerId === userid && follow.followingId === givenUserId ) {
+                    setIsFollowed(true);
+                    console.log("Edo ginetai to kako!!!!!!!!!!!", isFollowed);
+                };
+            }));
+        };
+
+        checkIfFollowed();
     }, [givenUserId]);
-    // console.log("here are the follows ", follows);
+
+    console.log("IS HE FOLLOWED???", isFollowed);
     return(
         <div>
             <Navbar/>
@@ -298,8 +318,8 @@ function User() {
             <div className="flex my-4">
                 <div className="flex-1 my-auto px-auto  text-white">
                     {   givenUser == currentUser ? <p></p> : !isFollowed ?
-                        <button onClick={() => {followUser(givenUser ? givenUser : "no-user")}} className="bg-[#8584e0] h-[50%] w-[40%]  max-w-[12rem] min-w-[8rem] mx-auto rounded-xl p-2 flex items-center border border-[#233549] opacity-90 hover:bg-[#6f97c2] shadow-btnShadow"><div className="ml-4"><Follow/></div><p className="ml-4 font-bold tracking-wider italic">Follow</p></button> : 
-                        <button onClick={() => {unfollowUser(givenUser ? givenUser : "no-user")}} className="bg-[#8584e0] h-[50%] w-[40%]  max-w-[12rem] min-w-[10rem] mx-auto rounded-xl p-2 flex items-center border border-[#233549] opacity-90 hover:bg-[#6f97c2] shadow-btnShadow"><div className="ml-4"><Unfollow/></div><p className="ml-4 font-bold tracking-wider italic">Unfollow</p></button>
+                        <button onClick={() => {followUser()}} className="bg-[#8584e0] h-[50%] w-[40%]  max-w-[12rem] min-w-[8rem] mx-auto rounded-xl p-2 flex items-center border border-[#233549] opacity-90 hover:bg-[#6f97c2] shadow-btnShadow"><div className="ml-4"><Follow/></div><p className="ml-4 font-bold tracking-wider italic">Follow</p></button> : 
+                        <button onClick={() => {unfollowUser()}} className="bg-[#8584e0] h-[50%] w-[40%]  max-w-[12rem] min-w-[10rem] mx-auto rounded-xl p-2 flex items-center border border-[#233549] opacity-90 hover:bg-[#6f97c2] shadow-btnShadow"><div className="ml-4"><Unfollow/></div><p className="ml-4 font-bold tracking-wider italic">Unfollow</p></button>
                     }
                 </div>  
                 <div className='flex-2'>
